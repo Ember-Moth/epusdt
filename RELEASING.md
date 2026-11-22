@@ -27,6 +27,25 @@ Each release also publishes:
 - a `SHA256SUMS` checksum file
 - a GitHub build provenance attestation for the checksum file
 
+## Container images
+
+The same `v*` tag also builds the Docker image for `linux/amd64` and `linux/arm64`:
+
+- [`docker-alpine`](.github/workflows/docker-alpine.yml) pushes `gmwallet/epusdt` to Docker Hub. It needs the `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` secrets.
+- [`ghcr-image`](.github/workflows/ghcr.yml) pushes `ghcr.io/<owner>/<repo>` (lowercase) with `GITHUB_TOKEN`. Stable tags get `X.Y.Z`, `X.Y` and `latest`; release candidates get only `X.Y.Z-rc1`. Every push to `master` also publishes `edge` and `sha-<short commit>`, and pull requests are built without pushing.
+
+Both workflows pass the `API_RATE_URL` repository variable to the build when it is set.
+
+### Make the GHCR package public
+
+GHCR creates the package as private on the first push. Do this once, after the first successful `ghcr-image` run:
+
+1. Open the package from the repository's Packages sidebar or the owner's Packages tab, then open **Package settings**.
+2. Under **Danger Zone**, change the visibility to **Public**.
+3. Check that the package page lists this repository. The image's `org.opencontainers.image.source` label normally connects it; if it does not, click **Connect repository** on the package page.
+
+For an organization-owned repository, the organization must allow public packages under **Organization settings → Packages → Package creation**.
+
 ## How to cut a release
 
 1. Make sure the release commit has already landed on the default branch.

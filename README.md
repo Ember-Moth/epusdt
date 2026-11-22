@@ -19,6 +19,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-brightgreen" alt="GPLv3"></a>
   <a href="https://github.com/GMWalletApp/epusdt/releases/latest"><img src="https://img.shields.io/github/v/release/GMWalletApp/epusdt?color=brightgreen" alt="GitHub release"></a>
   <a href="https://hub.docker.com/r/gmwallet/epusdt"><img src="https://img.shields.io/badge/Docker-gmwallet%2Fepusdt-2496ED?logo=docker&logoColor=white" alt="Docker Hub"></a>
+  <a href="https://github.com/GMWalletApp/epusdt/pkgs/container/epusdt"><img src="https://img.shields.io/badge/GHCR-ghcr.io%2Fgmwalletapp%2Fepusdt-181717?logo=github&logoColor=white" alt="GitHub Container Registry"></a>
 </p>
 
 </div>

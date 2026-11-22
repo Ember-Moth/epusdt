@@ -21,6 +21,33 @@ curl -fsS http://127.0.0.1:8000/payments/gmpay/v1/config
 
 Point your HTTPS reverse proxy at the mapped port. Configure a receiving address, then check `data.supported_assets` in the response.
 
+## Images and tags
+
+The default Compose file uses `gmwallet/epusdt` from Docker Hub. Images built from the same Dockerfile are also published to GitHub Container Registry (GHCR) as `ghcr.io/gmwalletapp/epusdt`. Both registries provide `linux/amd64` and `linux/arm64`.
+
+GHCR tags are listed below. Docker Hub version tags keep the `v` prefix (for example `v1.2.3`); GHCR tags drop it.
+
+| Tag | Contents |
+| --- | --- |
+| `latest` | Latest stable release |
+| `1.2.3`, `1.2` | A stable release; `1.2` moves to each new patch release in that series |
+| `1.2.3-rc1` | Release candidate; does not move `latest` |
+| `edge` | Latest `master` commit; unreleased, not for production |
+| `sha-<7-character commit>` | A specific `master` commit |
+
+```sh
+docker pull ghcr.io/gmwalletapp/epusdt:latest
+```
+
+To switch to GHCR, change both `image:` entries in the Compose file to the GHCR address with the tag you want, then pull and start:
+
+```sh
+docker compose pull epusdt
+docker compose up -d epusdt
+```
+
+Forks publish to `ghcr.io/<owner>/<repo>` in lowercase. New packages are private; if a pull fails with `denied` or `unauthorized`, ask the maintainer to make the package public as described in [Releasing](../RELEASING.md#container-images).
+
 ## Storage and upgrades
 
 Compose mounts `./runtime/epusdt` at `/app/runtime`. That directory holds the application `.env`, business and runtime databases, and the embedded scanner database. The project-level Compose environment and the application configuration are separate files.
