@@ -28,7 +28,8 @@ type OrderListFilter struct {
 }
 
 // ListOrders returns a paginated order slice plus the total count under
-// the same filter (for the UI pagination bar).
+// the same filter (for the UI pagination bar). It reads through the
+// read-only pool, like the other admin listings and counts in this file.
 func ListOrders(f OrderListFilter) ([]mdb.Orders, int64, error) {
 	tx := buildOrderListQuery(f)
 	var total int64
@@ -54,9 +55,18 @@ func ListOrders(f OrderListFilter) ([]mdb.Orders, int64, error) {
 }
 
 func buildOrderListQuery(f OrderListFilter) *gorm.DB {
-	tx := dao.Mdb.Model(&mdb.Orders{})
-	if f.ParentOnly {
+	tx := dao.ReadDB().Model(&mdb.Orders{})
+	switch {
+	case f.ParentOnly && f.Status > 0:
+		// Every column of idx_orders_parent_status is fixed, so the COUNT
+		// reads only that index and the page comes back in id order.
 		tx = tx.Where("parent_trade_id = ?", "")
+	case f.ParentOnly:
+		// Nearly every order is a parent, so an index on parent_trade_id
+		// does not narrow anything. The unary plus keeps this term off the
+		// indexes: SQLite then reads the table in id order (or counts from
+		// a covering index) instead of looking rows up in index order.
+		tx = tx.Where("+parent_trade_id = ?", "")
 	}
 	if f.Status > 0 {
 		tx = tx.Where("status = ?", f.Status)
@@ -91,7 +101,7 @@ func CountOrdersByStatus() (map[int]int64, error) {
 		Total  int64
 	}
 	var rows []row
-	err := dao.Mdb.Model(&mdb.Orders{}).
+	err := dao.ReadDB().Model(&mdb.Orders{}).
 		Select("status, COUNT(*) AS total").
 		Group("status").
 		Scan(&rows).Error
@@ -178,7 +188,7 @@ func CountOrdersByAddress() (map[string]int64, error) {
 		Total   int64
 	}
 	var rows []row
-	err := dao.Mdb.Model(&mdb.Orders{}).
+	err := dao.ReadDB().Model(&mdb.Orders{}).
 		Select("receive_address, COUNT(*) AS total").
 		Group("receive_address").
 		Scan(&rows).Error

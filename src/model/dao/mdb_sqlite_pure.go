@@ -17,3 +17,8 @@ func openDB(dsn string, cfg *gorm.Config) (*gorm.DB, error) {
 	}
 	return db, nil
 }
+
+// openReadDB opens connections that reject writes (PRAGMA query_only).
+func openReadDB(dsn string, cfg *gorm.Config) (*gorm.DB, error) {
+	return gorm.Open(sqlite.Open(dsn+"?_pragma=busy_timeout(5000)&_pragma=query_only(1)"), cfg)
+}

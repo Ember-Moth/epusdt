@@ -441,6 +441,7 @@ func closeInstallDatabases() {
 		}
 		dao.RuntimeDB = nil
 	}
+	dao.CloseReadPool()
 	if dao.Mdb != nil {
 		if db, err := dao.Mdb.DB(); err == nil {
 			_ = db.Close()

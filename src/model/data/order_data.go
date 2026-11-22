@@ -74,13 +74,12 @@ func applyLockAddressFilter(tx *gorm.DB, network, address string) *gorm.DB {
 	return tx.Where("address = ?", address)
 }
 
+// applyOrderReceiveAddressFilter compares receive_address directly so the
+// column stays usable by an index. EVM addresses are stored lowercase: new
+// orders are normalized at creation and LowercaseEVMOrderReceiveAddresses
+// rewrites older rows at startup.
 func applyOrderReceiveAddressFilter(tx *gorm.DB, network, address string) *gorm.DB {
-	network = normalizeLockNetwork(network)
-	address = normalizeLockAddress(network, address)
-	if isEVMNetwork(network) {
-		return tx.Where("lower(receive_address) = ?", address)
-	}
-	return tx.Where("receive_address = ?", address)
+	return tx.Where("receive_address = ?", normalizeLockAddress(network, address))
 }
 
 func activeLocksForAddress(tx *gorm.DB, network, address, token string, now time.Time) *gorm.DB {
