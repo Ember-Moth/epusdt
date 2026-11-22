@@ -27,6 +27,7 @@ admin() { curl -sS -i -H "Authorization: Bearer $ADMIN" -H 'Content-Type: applic
 | 角色 | HTTP | 成功状态 |
 | --- | --- | --- |
 | 消费者 | [`PUT /v1/subscriptions`](#replace-watches) | `200 / 202` |
+| 消费者 | [`POST /v1/subscriptions`](#add-watches) | `200` |
 | 消费者 | [`GET /v1/events/next`](#next) | `200 / 204` |
 | 消费者 | [`GET /v1/events/stream`](#streaming) · WebSocket | `101` |
 | 消费者 | [`POST /v1/events/{id}/ack`](#ack) | `204` |
@@ -100,6 +101,20 @@ consumer -X PUT "$BASE/v1/subscriptions" --data '[{"network":"base","address":"0
 
 ```json
 {"registrations":[],"terminations":[{"network":"base","address":"0x1111111111111111111111111111111111111111","from_height":101,"to_height":110,"completed":false}]}
+```
+
+<a id="add-watches"></a>
+
+### `POST /v1/subscriptions`
+
+只新增订阅，不移除已有订阅。请求体格式和大小上限与 `PUT` 相同。响应按请求顺序把每个不重复的地址列出一次，包含规范化地址和含首块的 `from_height`。已有订阅保持原起始块。新订阅的起始块与 `PUT` 规则相同；若该地址上一段区间仍在退订排空，则从该区间 `to_height` 的下一块开始。适合逐个登记地址。下一次 `PUT` 仍以完整列表替换，未列入的订阅会被移除。地址或网络无效返回 **400**。开启冷启动网络所需的链头不可用时返回 **409**，本次请求中的地址均不会登记。重复 `PUT` 时回放的退订回执不受影响。
+
+```sh
+consumer -X POST "$BASE/v1/subscriptions" --data '[{"network":"base","address":"0x1111111111111111111111111111111111111111"}]'
+```
+
+```json
+{"registrations":[{"network":"base","address":"0x1111111111111111111111111111111111111111","from_height":101}]}
 ```
 
 <a id="deliveries"></a>

@@ -26,6 +26,7 @@ type (
 	Registration        = feed.Registration
 	Termination         = feed.Termination
 	SubscriptionReceipt = feed.SubscriptionReceipt
+	RegistrationReceipt = feed.RegistrationReceipt
 	Delivery            = feed.Delivery
 	Feed                = feed.Feed
 	Client              = feed.Client

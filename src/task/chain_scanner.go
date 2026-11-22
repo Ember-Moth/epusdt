@@ -17,19 +17,19 @@ const paymentConsumer = "epusdt"
 
 var scannerNetworks = []string{mdb.NetworkEthereum, mdb.NetworkBsc, mdb.NetworkPolygon, mdb.NetworkPlasma, mdb.NetworkTron, mdb.NetworkTon, mdb.NetworkAptos, mdb.NetworkSolana, mdb.NetworkSui, mdb.NetworkArbitrum, mdb.NetworkHyperEVM, mdb.NetworkMonad, mdb.NetworkArc, mdb.NetworkAvalanche, mdb.NetworkOptimism, mdb.NetworkBase}
 
+// paymentSubscriptions keeps ChainScanner's watch set for this consumer.
+// refresh replaces the complete set and owns removal and reconciliation;
+// ensure only adds one address. refresh holds the write lock from reading the
+// wallet list until its replacement commits, so it cannot remove an address
+// whose ensure finished after that read.
 type paymentSubscriptions struct {
-	mu         sync.Mutex
-	feed       scanner.Feed
-	registered map[scanner.Watch]bool
+	mu   sync.RWMutex
+	feed scanner.Feed
 }
 
 func (p *paymentSubscriptions) refresh(ctx context.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return p.syncLocked(ctx)
-}
-
-func (p *paymentSubscriptions) syncLocked(ctx context.Context) error {
 	wallets, err := data.GetAvailableWalletAddress()
 	if err != nil {
 		return err
@@ -55,39 +55,32 @@ func (p *paymentSubscriptions) syncLocked(ctx context.Context) error {
 		}
 		watches = append(watches, scanner.Watch{Network: w.Network, Address: a})
 	}
-	receipt, err := p.feed.Subscribe(ctx, paymentConsumer, watches)
-	if err != nil {
-		return err
-	}
-	p.registered = make(map[scanner.Watch]bool, len(receipt.Registrations))
-	for _, r := range receipt.Registrations {
-		p.registered[r.Watch] = true
-	}
-	return nil
+	_, err = p.feed.Subscribe(ctx, paymentConsumer, watches)
+	return err
 }
 
+// ensure returns once ChainScanner confirms it watches the address. It asks
+// every time because a remote scanner may have restarted without its state.
 func (p *paymentSubscriptions) ensure(network, address string) error {
 	a, err := scanner.Canonical(network, address)
 	if err != nil {
 		return err
 	}
 	w := scanner.Watch{Network: network, Address: a}
-	p.mu.Lock()
-	_, remote := p.feed.(scanner.Client)
-	if !p.registered[w] || remote {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		err = p.syncLocked(ctx)
-		cancel()
-	}
-	registered := p.registered[w]
-	p.mu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	p.mu.RLock()
+	rows, err := p.feed.Register(ctx, paymentConsumer, []scanner.Watch{w})
+	p.mu.RUnlock()
 	if err != nil {
 		return err
 	}
-	if !registered {
-		return errors.New("payment address is not registered with ChainScanner")
+	for _, r := range rows {
+		if r.Watch == w {
+			return nil
+		}
 	}
-	return nil
+	return errors.New("payment address is not registered with ChainScanner")
 }
 
 func consumeQueue(ctx context.Context, feed scanner.Feed, next func() (*scanner.Delivery, error)) {

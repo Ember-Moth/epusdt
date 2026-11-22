@@ -33,9 +33,56 @@ const (
 )
 
 var (
-	gCreateTransactionLock sync.Mutex
-	gOrderProcessingLock   sync.Mutex
+	// Order creation needs no process-wide lock: the runtime transaction and
+	// unique index make amount reservation atomic, and orders_order_id_uindex
+	// rejects a duplicate merchant order id. Switching is serialized per parent.
+	gSwitchNetworkLocks  keyedMutex
+	gOrderProcessingLock sync.Mutex
 )
+
+// keyedMutex serializes callers that share a key and drops idle keys.
+type keyedMutex struct {
+	mu    sync.Mutex
+	locks map[string]*keyedLock
+}
+
+type keyedLock struct {
+	sync.Mutex
+	refs int
+}
+
+// Lock acquires the key and returns its unlock function.
+func (k *keyedMutex) Lock(key string) func() {
+	k.mu.Lock()
+	if k.locks == nil {
+		k.locks = map[string]*keyedLock{}
+	}
+	l := k.locks[key]
+	if l == nil {
+		l = &keyedLock{}
+		k.locks[key] = l
+	}
+	l.refs++
+	k.mu.Unlock()
+	l.Lock()
+	return func() {
+		l.Unlock()
+		k.mu.Lock()
+		if l.refs--; l.refs == 0 {
+			delete(k.locks, key)
+		}
+		k.mu.Unlock()
+	}
+}
+
+// orderInsertError reports a lost order_id race the same way as a sequential
+// duplicate. Call it after the failed transaction has been rolled back.
+func orderInsertError(orderID string, err error) error {
+	if existing, lookupErr := data.GetOrderInfoByOrderId(orderID); lookupErr == nil && existing.ID > 0 {
+		return constant.OrderAlreadyExists
+	}
+	return err
+}
 
 var (
 	manualPaymentWaitPayStatuses = []int{mdb.StatusWaitPay}
@@ -130,9 +177,6 @@ func CreateTransaction(req *request.CreateTransactionRequest, apiKey *mdb.ApiKey
 		epayType = strings.TrimSpace(req.EpayType)
 	}
 
-	gCreateTransactionLock.Lock()
-	defer gCreateTransactionLock.Unlock()
-
 	amountPrecision := data.GetAmountPrecision()
 	payAmount := math.MustParsePrecFloat64(req.Amount, amountPrecision)
 	exist, err := data.GetOrderInfoByOrderId(req.OrderId)
@@ -165,7 +209,7 @@ func CreateTransaction(req *request.CreateTransactionRequest, apiKey *mdb.ApiKey
 			ApiKeyID:    apiKeyID(apiKey),
 		}
 		if err = data.CreateOrderWithTransaction(dao.Mdb, order); err != nil {
-			return nil, err
+			return nil, orderInsertError(req.OrderId, err)
 		}
 		return buildCreateTransactionResponse(order), nil
 	}
@@ -231,12 +275,12 @@ func CreateTransaction(req *request.CreateTransactionRequest, apiKey *mdb.ApiKey
 	if err = data.CreateOrderWithTransaction(tx, order); err != nil {
 		tx.Rollback()
 		_ = data.UnLockTransactionByTradeId(tradeID)
-		return nil, err
+		return nil, orderInsertError(req.OrderId, err)
 	}
 	if err = tx.Commit().Error; err != nil {
 		tx.Rollback()
 		_ = data.UnLockTransactionByTradeId(tradeID)
-		return nil, err
+		return nil, orderInsertError(req.OrderId, err)
 	}
 
 	return buildCreateTransactionResponse(order), nil
@@ -333,45 +377,36 @@ func orderProcessingWithAllowedStatuses(req *request.OrderProcessingRequest, all
 // EnsurePaymentWatch is wired during bootstrap before the HTTP server starts.
 var EnsurePaymentWatch func(network, address string) error
 
-// ReserveAvailableWalletAndAmount finds and locks a network+address+token+amount pair.
+// ReserveAvailableWalletAndAmount finds and locks a network+address+token+amount
+// pair, then confirms that ChainScanner watches the chosen address. Candidates
+// keep the original order: every wallet at the base amount, then every wallet
+// at each increment, up to IncrementalMaximumNumber amounts.
 func ReserveAvailableWalletAndAmount(tradeID string, network string, token string, amount float64, walletAddress []mdb.WalletAddress) (string, float64, error) {
-	availableAddress := ""
-	availableAmount := amount
 	amountPrecision := data.GetAmountPrecision()
-
-	tryLockWalletFunc := func(targetAmount float64) (string, error) {
-		for _, address := range walletAddress {
-			normalizedAddress := normalizeOrderAddressByNetwork(network, address.Address)
-			if EnsurePaymentWatch != nil {
-				if err := EnsurePaymentWatch(network, normalizedAddress); err != nil {
-					return "", err
-				}
-			}
-			err := data.LockTransaction(network, normalizedAddress, token, tradeID, targetAmount, config.GetOrderExpirationTimeDuration())
-			if err == nil {
-				return normalizedAddress, nil
-			}
-			if errors.Is(err, data.ErrTransactionLocked) {
-				continue
-			}
-			return "", err
-		}
-		return "", nil
+	addresses := make([]string, len(walletAddress))
+	for i, address := range walletAddress {
+		addresses[i] = normalizeOrderAddressByNetwork(network, address.Address)
+	}
+	amounts := make([]float64, IncrementalMaximumNumber)
+	decimalIncr := decimal.New(1, int32(-amountPrecision))
+	next := amount
+	for i := range amounts {
+		amounts[i] = next
+		next = math.MustParsePrecFloat64(decimal.NewFromFloat(next).Add(decimalIncr).InexactFloat64(), amountPrecision)
 	}
 
-	for i := 0; i < IncrementalMaximumNumber; i++ {
-		address, err := tryLockWalletFunc(availableAmount)
-		if err != nil {
+	availableAddress, availableAmount, err := data.ReserveTransactionSlot(network, token, tradeID, addresses, amounts, config.GetOrderExpirationTimeDuration())
+	if err != nil || availableAddress == "" {
+		return "", amount, err
+	}
+	// Only the selected address must be watched before the order is returned.
+	if EnsurePaymentWatch != nil {
+		if err = EnsurePaymentWatch(network, availableAddress); err != nil {
+			if unlockErr := data.UnLockTransactionByTradeId(tradeID); unlockErr != nil {
+				log.Sugar.Warnf("[order] release reservation %s: %v", tradeID, unlockErr)
+			}
 			return "", 0, err
 		}
-		if address == "" {
-			decimalOldAmount := decimal.NewFromFloat(availableAmount)
-			decimalIncr := decimal.New(1, int32(-amountPrecision))
-			availableAmount = math.MustParsePrecFloat64(decimalOldAmount.Add(decimalIncr).InexactFloat64(), amountPrecision)
-			continue
-		}
-		availableAddress = address
-		break
 	}
 	return availableAddress, availableAmount, nil
 }
@@ -543,8 +578,8 @@ const MaxSubOrders = 1
 // an existing sub-order for a different payment target once the parent is
 // already concrete.
 func SwitchNetwork(req *request.SwitchNetworkRequest) (*response.CheckoutCounterResponse, error) {
-	gCreateTransactionLock.Lock()
-	defer gCreateTransactionLock.Unlock()
+	// Sub-order limits, reuse and placeholder completion are per parent order.
+	defer gSwitchNetworkLocks.Lock(req.TradeId)()
 
 	token := strings.ToUpper(strings.TrimSpace(req.Token))
 	network := strings.ToLower(strings.TrimSpace(req.Network))

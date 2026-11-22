@@ -27,6 +27,7 @@ admin() { curl -sS -i -H "Authorization: Bearer $ADMIN" -H 'Content-Type: applic
 | Rol | HTTP | Éxito |
 | --- | --- | --- |
 | Consumidor | [`PUT /v1/subscriptions`](#replace-watches) | `200 / 202` |
+| Consumidor | [`POST /v1/subscriptions`](#add-watches) | `200` |
 | Consumidor | [`GET /v1/events/next`](#next) | `200 / 204` |
 | Consumidor | [`GET /v1/events/stream`](#streaming) · WebSocket | `101` |
 | Consumidor | [`POST /v1/events/{id}/ack`](#ack) | `204` |
@@ -102,6 +103,20 @@ Un **202** indica que quedan bloques pendientes para alguna baja. Repite la mism
 
 ```json
 {"registrations":[],"terminations":[{"network":"base","address":"0x1111111111111111111111111111111111111111","from_height":101,"to_height":110,"completed":false}]}
+```
+
+<a id="add-watches"></a>
+
+### `POST /v1/subscriptions`
+
+Añade suscripciones sin eliminar las demás. El cuerpo tiene el mismo formato y límite que `PUT`. La respuesta enumera cada suscripción distinta una sola vez, en el orden de la solicitud, con su dirección canónica y su `from_height` inclusiva. Una suscripción existente conserva su inicio. Una nueva empieza como lo haría con `PUT`. Si su intervalo anterior aún se está drenando, empieza después del `to_height` de ese intervalo. Usa esta ruta para registrar direcciones de una en una. El siguiente `PUT` sigue reemplazando la lista completa y elimina lo que omita. Los datos inválidos devuelven **400**. Un **409** indica que falta la altura necesaria para abrir una red en frío y no se añade ninguna suscripción de la solicitud. El recibo de bajas que reproduce un `PUT` repetido no cambia.
+
+```sh
+consumer -X POST "$BASE/v1/subscriptions" --data '[{"network":"base","address":"0x1111111111111111111111111111111111111111"}]'
+```
+
+```json
+{"registrations":[{"network":"base","address":"0x1111111111111111111111111111111111111111","from_height":101}]}
 ```
 
 <a id="deliveries"></a>

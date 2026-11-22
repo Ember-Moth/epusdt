@@ -27,6 +27,7 @@ admin() { curl -sS -i -H "Authorization: Bearer $ADMIN" -H 'Content-Type: applic
 | Role | HTTP | Success |
 | --- | --- | --- |
 | Consumer | [`PUT /v1/subscriptions`](#replace-watches) | `200 / 202` |
+| Consumer | [`POST /v1/subscriptions`](#add-watches) | `200` |
 | Consumer | [`GET /v1/events/next`](#next) | `200 / 204` |
 | Consumer | [`GET /v1/events/stream`](#streaming) · WebSocket | `101` |
 | Consumer | [`POST /v1/events/{id}/ack`](#ack) | `204` |
@@ -100,6 +101,20 @@ A **202** receipt means at least one removed address still has outstanding block
 
 ```json
 {"registrations":[],"terminations":[{"network":"base","address":"0x1111111111111111111111111111111111111111","from_height":101,"to_height":110,"completed":false}]}
+```
+
+<a id="add-watches"></a>
+
+### `POST /v1/subscriptions`
+
+Adds watches without removing any others. The body has the same format and limit as `PUT`. The response lists each distinct requested watch once, in request order, with its canonical address and inclusive `from_height`. An existing watch keeps its start. A new watch starts as it would under `PUT`. If its previous interval is still draining, it starts after that interval's `to_height`. Use this route to register one address at a time. The next `PUT` still replaces the complete list and removes any watch it omits. Invalid watches return **400**. **409** means a head required to open a cold network is unavailable, and no watch from the request is added. The termination receipt that a repeated `PUT` replays does not change.
+
+```sh
+consumer -X POST "$BASE/v1/subscriptions" --data '[{"network":"base","address":"0x1111111111111111111111111111111111111111"}]'
+```
+
+```json
+{"registrations":[{"network":"base","address":"0x1111111111111111111111111111111111111111","from_height":101}]}
 ```
 
 <a id="deliveries"></a>

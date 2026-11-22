@@ -65,31 +65,11 @@ func (s *Store) Draining(n string) bool {
 // consumer while allowing scans and other consumers to proceed during RPC.
 func (s *Store) Subscribe(ctx context.Context, consumer string, watches []feed.Watch) (feed.SubscriptionReceipt, error) {
 	var result feed.SubscriptionReceipt
-	if strings.TrimSpace(consumer) == "" {
-		return result, errors.New("empty consumer")
+	ordered, wanted, err := s.canonicalWatches(consumer, watches)
+	if err != nil {
+		return result, err
 	}
-	wanted := map[feed.Watch]bool{}
-	var ordered []feed.Watch
-	for _, w := range watches {
-		a, err := chains.Canonical(w.Network, w.Address)
-		if err != nil {
-			return result, err
-		}
-		if s.configured != nil {
-			if _, ok := s.configured[w.Network]; !ok {
-				return result, ErrNetworkNotConfigured
-			}
-		}
-		w.Address = a
-		if !wanted[w] {
-			ordered = append(ordered, w)
-			wanted[w] = true
-		}
-	}
-	lock, _ := s.replacements.LoadOrStore(consumer, new(sync.Mutex))
-	mu := lock.(*sync.Mutex)
-	mu.Lock()
-	defer mu.Unlock()
+	defer s.lockConsumer(consumer)()
 	old, removed, tips, err := s.subscriptionChanges(ctx, consumer, ordered, wanted)
 	if err != nil {
 		return result, err
@@ -200,20 +180,145 @@ func (s *Store) subscriptionChanges(ctx context.Context, consumer string, ordere
 			need[w.Network] = true
 		}
 	}
-	// Raw tips bound removals; lookback applies only when opening a cold chain.
+	tips, err := s.boundaries(ctx, need)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return old, removed, tips, nil
+}
+
+// canonicalWatches validates a request and removes duplicate watches while
+// preserving the caller's order.
+func (s *Store) canonicalWatches(consumer string, watches []feed.Watch) ([]feed.Watch, map[feed.Watch]bool, error) {
+	if strings.TrimSpace(consumer) == "" {
+		return nil, nil, errors.New("empty consumer")
+	}
+	wanted := map[feed.Watch]bool{}
+	var ordered []feed.Watch
+	for _, w := range watches {
+		a, err := chains.Canonical(w.Network, w.Address)
+		if err != nil {
+			return nil, nil, err
+		}
+		if s.configured != nil {
+			if _, ok := s.configured[w.Network]; !ok {
+				return nil, nil, ErrNetworkNotConfigured
+			}
+		}
+		w.Address = a
+		if !wanted[w] {
+			ordered = append(ordered, w)
+			wanted[w] = true
+		}
+	}
+	return ordered, wanted, nil
+}
+
+// lockConsumer serializes watch changes for one consumer and returns the unlock.
+func (s *Store) lockConsumer(consumer string) func() {
+	lock, _ := s.replacements.LoadOrStore(consumer, new(sync.Mutex))
+	mu := lock.(*sync.Mutex)
+	mu.Lock()
+	return mu.Unlock
+}
+
+// boundaries reads raw chain heads without holding demandMu. Raw tips bound
+// removals; lookback applies only when opening a cold chain.
+func (s *Store) boundaries(ctx context.Context, need map[string]bool) (map[string]boundary, error) {
 	tips := map[string]boundary{}
 	for n := range need {
 		if s.resolve == nil {
-			return nil, nil, nil, feed.ErrCursorNotReady
+			return nil, feed.ErrCursorNotReady
 		}
 		_, epoch := s.period(n)
 		tip, err := s.resolve(ctx, n)
 		if err != nil || tip < 0 {
-			return nil, nil, nil, fmt.Errorf("%s: %w", n, feed.ErrCursorNotReady)
+			return nil, fmt.Errorf("%s: %w", n, feed.ErrCursorNotReady)
 		}
 		tips[n] = boundary{epoch, tip}
 	}
-	return old, removed, tips, nil
+	return tips, nil
+}
+
+// Register adds watches for one consumer and leaves its other watches in
+// place. An existing watch keeps its start. A new watch opens exactly as in
+// Subscribe, including after a closed interval that is still draining. The
+// termination receipt replayed by Subscribe is not changed.
+func (s *Store) Register(ctx context.Context, consumer string, watches []feed.Watch) ([]feed.Registration, error) {
+	ordered, _, err := s.canonicalWatches(consumer, watches)
+	if err != nil {
+		return nil, err
+	}
+	defer s.lockConsumer(consumer)()
+	// Point lookups keep the cost proportional to the request, not the consumer's set.
+	old := map[feed.Watch]int64{}
+	need := map[string]bool{}
+	checked := map[string]bool{}
+	for _, w := range ordered {
+		var h int64
+		err = s.db.QueryRowContext(ctx, "SELECT from_height FROM watches WHERE consumer=? AND network=? AND address=?", consumer, w.Network, w.Address).Scan(&h)
+		if err == nil {
+			old[w] = h
+			continue
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+		if checked[w.Network] {
+			continue
+		}
+		checked[w.Network] = true
+		if _, exists, err := s.cursor(ctx, w.Network); err != nil {
+			return nil, err
+		} else if !exists {
+			need[w.Network] = true
+		}
+	}
+	result := make([]feed.Registration, 0, len(ordered))
+	if len(old) == len(ordered) {
+		for _, w := range ordered {
+			result = append(result, feed.Registration{Watch: w, FromHeight: old[w]})
+		}
+		return result, nil
+	}
+	tips, err := s.boundaries(ctx, need)
+	if err != nil {
+		return nil, err
+	}
+	s.demandMu.Lock()
+	defer s.demandMu.Unlock()
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	touched := map[string]drainState{}
+	for _, w := range ordered {
+		start, exists := old[w]
+		if !exists {
+			start, err = s.openWatch(ctx, tx, consumer, w, tips[w.Network])
+			if err != nil {
+				return nil, err
+			}
+			touched[w.Network] = drainState{}
+		}
+		result = append(result, feed.Registration{Watch: w, FromHeight: start})
+	}
+	for n := range touched {
+		state, err := settle(ctx, tx, n)
+		if err != nil {
+			return nil, err
+		}
+		touched[n] = state
+	}
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+	for n, state := range touched {
+		s.indexes.Delete(n)
+		s.applyState(n, state)
+	}
+	return result, nil
 }
 
 func (s *Store) openWatch(ctx context.Context, tx *sql.Tx, consumer string, w feed.Watch, b boundary) (int64, error) {
