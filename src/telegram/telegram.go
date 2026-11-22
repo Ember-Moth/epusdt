@@ -22,6 +22,9 @@ var (
 	bots        *tb.Bot
 	adminChatID int64
 	reloadMu    sync.Mutex
+	// reloadWG tracks goroutines started by ReloadBotAsync so callers
+	// (tests, shutdown) can wait for them instead of leaking them.
+	reloadWG sync.WaitGroup
 )
 
 // BotStart connects the command bot. If no telegram channel is
@@ -38,11 +41,24 @@ func BotStart() {
 // It is used by admin API handlers after telegram channel create/update/
 // status/delete so operators don't need to restart the service.
 func ReloadBotAsync(reason string) {
-	go func() {
+	reloadWG.Go(func() {
 		if err := reloadBot(reason); err != nil {
 			log.Sugar.Errorf("[telegram] reload failed, reason=%s err=%v", reason, err)
 		}
-	}()
+	})
+}
+
+// WaitPendingReloads blocks until every reload started by ReloadBotAsync
+// has returned. It does not wait for the bot's long-poll loop, which runs
+// until the next reload stops it.
+//
+// The reload goroutines read package globals owned by other packages
+// (log.Sugar, the settings cache, dao.Mdb). Tests that reassign those
+// globals must call this, e.g. via t.Cleanup, before the next test's
+// setup runs. Call it only once no new ReloadBotAsync calls can start,
+// as sync.WaitGroup requires.
+func WaitPendingReloads() {
+	reloadWG.Wait()
 }
 
 // loadCommandBotConfig reads the command-bot config from the settings

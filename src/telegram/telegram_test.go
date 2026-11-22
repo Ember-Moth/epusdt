@@ -2,12 +2,17 @@ package telegram
 
 import (
 	"testing"
+	"time"
 
 	"github.com/GMWalletApp/epusdt/config"
 	"github.com/GMWalletApp/epusdt/internal/testutil"
 	"github.com/GMWalletApp/epusdt/model/dao"
 	"github.com/GMWalletApp/epusdt/model/data"
 	"github.com/GMWalletApp/epusdt/model/mdb"
+	"github.com/GMWalletApp/epusdt/util/log"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func withTelegramEnv(token, proxy string, manage int64, fn func()) {
@@ -131,5 +136,30 @@ func TestLoadCommandBotConfig_SkipsInvalidAndUsesNextValid(t *testing.T) {
 	}
 	if cfg != nil {
 		t.Fatalf("expected nil config on parse error, got %+v", cfg)
+	}
+}
+
+// TestWaitPendingReloads_WaitsForAsyncReload guards the hook tests use to
+// stop ReloadBotAsync goroutines from outliving the test that started them
+// (they read log.Sugar and dao.Mdb, which the next test reassigns).
+func TestWaitPendingReloads_WaitsForAsyncReload(t *testing.T) {
+	cleanup := testutil.SetupTestDatabases(t)
+	defer cleanup()
+	_ = data.ReloadSettings() // no telegram settings → reload logs "disabled" and returns
+
+	core, logs := observer.New(zapcore.InfoLevel)
+	prevSugar := log.Sugar
+	log.Sugar = zap.New(core).Sugar()
+	t.Cleanup(func() { log.Sugar = prevSugar })
+
+	// Hold reloadMu so the reload goroutine cannot finish before we wait.
+	reloadMu.Lock()
+	ReloadBotAsync("test")
+	time.AfterFunc(50*time.Millisecond, reloadMu.Unlock)
+
+	WaitPendingReloads()
+
+	if got := logs.FilterMessageSnippet("command bot disabled").Len(); got != 1 {
+		t.Fatalf("expected the reload to have finished and logged once, got %d entries: %v", got, logs.All())
 	}
 }

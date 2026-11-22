@@ -19,6 +19,7 @@ import (
 	"github.com/GMWalletApp/epusdt/model/data"
 	"github.com/GMWalletApp/epusdt/model/mdb"
 	"github.com/GMWalletApp/epusdt/model/service"
+	"github.com/GMWalletApp/epusdt/telegram"
 	"github.com/GMWalletApp/epusdt/util/constant"
 	"github.com/GMWalletApp/epusdt/util/http_client"
 	"github.com/GMWalletApp/epusdt/util/log"
@@ -100,6 +101,12 @@ func setupTestEnv(t *testing.T) *echo.Echo {
 		config.RateCacheSave = nil
 		config.ResetRateCacheRuntime()
 	})
+	// Admin notification/settings handlers start telegram reload goroutines
+	// that read log.Sugar, the settings cache and dao.Mdb. Wait for them
+	// before this test ends, or they race with the next test's setup
+	// reassigning those globals. Registered last so it runs first (LIFO),
+	// before the cleanups above and the TempDir removal.
+	t.Cleanup(telegram.WaitPendingReloads)
 	if err := data.SetSetting("rate", "rate.forced_rate_list", `{"cny":{"usdt":0.14285714285714285}}`, "json"); err != nil {
 		t.Fatalf("seed rate.forced_rate_list: %v", err)
 	}
