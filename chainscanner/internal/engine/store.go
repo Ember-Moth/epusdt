@@ -291,6 +291,45 @@ func (s *Store) addressIndex(ctx context.Context, tx *sql.Tx, network string) (m
 	return watchers, nil
 }
 
+// watchedSnapshot lets block readers skip transactions that touch no address
+// in the cached index. It relies on this invariant: while a reserved span is
+// being read, the cached index holds every watcher that can match a height in
+// that span.
+//   - A new watch starts above every reserved span (openWatch uses cursors.height+1).
+//     Spans containing its start are reserved under demandMu after Subscribe has
+//     committed and dropped the cached index, so a later read sees either no
+//     index or one that includes the new watch.
+//   - A removed watch stays in closing_watches until settle sees the contiguous
+//     cursor reach its to_height. A span being read is still a scan gap, so it
+//     lies above that cursor.
+//
+// With no cached index the reader keeps every transaction; enqueue then loads it.
+func (s *Store) watchedSnapshot(network string) func() chains.Watched {
+	return func() chains.Watched {
+		v, ok := s.indexes.Load(network)
+		if !ok {
+			return nil
+		}
+		index := v.(map[string][]watcher)
+		return func(a string) bool { _, ok := index[a]; return ok }
+	}
+}
+
+// Caller holds demandMu. Loading the index before reads start lets them filter
+// right after a subscription change, instead of after the next commit.
+func (s *Store) warmIndexLocked(ctx context.Context, network string) error {
+	if _, ok := s.indexes.Load(network); ok {
+		return nil
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	_, err = s.addressIndex(ctx, tx, network)
+	return err
+}
+
 // SeedCursor imports a last processed height only on the first start.
 func (s *Store) SeedCursor(ctx context.Context, network string, height int64) error {
 	tx, err := s.db.BeginTx(ctx, nil)

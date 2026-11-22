@@ -155,7 +155,7 @@ func TestNodePoolKeepsCursorOnProviderChange(t *testing.T) {
 				result = fmt.Sprintf("0x%x", head.Load())
 			case "eth_getBlockByNumber":
 				result = map[string]any{"number": req.Params[0], "hash": "0x123", "parentHash": "0x123", "timestamp": "0x10", "transactions": []any{}}
-			case "eth_getBlockReceipts":
+			case "eth_getBlockReceipts", "eth_getLogs":
 				result = []any{}
 			default:
 				t.Errorf("unexpected %s", req.Method)

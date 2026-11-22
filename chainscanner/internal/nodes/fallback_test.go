@@ -68,7 +68,7 @@ func TestFallbackRepairsFailedBlocksAndResumesAfterRestart(t *testing.T) {
 					return
 				}
 				value = map[string]any{"number": q.Params[0], "hash": "0x123", "parentHash": "0x123", "timestamp": "0x10", "transactions": []any{}}
-			case "eth_getBlockReceipts":
+			case "eth_getBlockReceipts", "eth_getLogs":
 				value = []any{}
 			default:
 				t.Errorf("unexpected RPC %s", q.Method)

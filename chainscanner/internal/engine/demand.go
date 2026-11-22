@@ -4,10 +4,14 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"github.com/GMWalletApp/ChainScanner/internal/chains"
 )
 
 // Each uninterrupted period with at least one watch owns its RPC connections.
 // Canceling the period also invalidates a late read from that generation.
+// Every scan read derives from the period context, which carries the address
+// filter; see Store.watchedSnapshot for why the filter is safe.
 type demandPeriod struct {
 	started time.Time
 	heads   headHistory
@@ -32,7 +36,7 @@ func (s *Store) setDemandLocked(network string, active bool) {
 	p.heads = headHistory{}
 	if active {
 		p.started = time.Now()
-		p.active, p.stop = context.WithCancel(context.Background())
+		p.active, p.stop = context.WithCancel(chains.WithWatched(context.Background(), s.watchedSnapshot(network)))
 	} else {
 		p.stop()
 		p.active, p.stop = nil, nil
