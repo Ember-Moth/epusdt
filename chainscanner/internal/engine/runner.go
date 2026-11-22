@@ -51,6 +51,9 @@ func (s *Store) step(ctx context.Context, n chains.Network, source chains.Source
 	ctx, cancel := context.WithCancel(ctx)
 	stop := context.AfterFunc(period, cancel)
 	defer func() { stop(); cancel() }()
+	// Reads of reserved spans may skip unwatched transactions whatever context
+	// the caller passed; the live queue inherits the same filter from period.
+	ctx = chains.WithWatched(ctx, s.watchedSnapshot(n.Name))
 	if period.Err() != nil {
 		return false, nil
 	}
@@ -111,6 +114,9 @@ func (s *Store) step(ctx context.Context, n chains.Network, source chains.Source
 		head = min(head, drain.end)
 	}
 	work, high, err := s.planAvailable(ctx, n.Name, prev, head, limit, owned, retryDelay)
+	if err == nil {
+		err = s.warmIndexLocked(ctx, n.Name)
+	}
 	s.demandMu.Unlock()
 	if err != nil || (!rolling && len(work) == 0) {
 		return false, err

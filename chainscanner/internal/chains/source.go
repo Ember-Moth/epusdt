@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/ethereum/go-ethereum/common"
@@ -27,8 +28,14 @@ func Canonical(n, a string) (string, error) {
 	a = strings.TrimSpace(a)
 	switch {
 	case IsEVM(n):
+		// The lowercase hex of the 20 address bytes. Skipping the EIP-55
+		// checksum avoids hashing every address of every scanned block.
 		if common.IsHexAddress(a) {
-			return strings.ToLower(common.HexToAddress(a).Hex()), nil
+			h := a[len(a)-40:]
+			if a[:2] == "0x" && strings.ToLower(h) == h {
+				return a, nil // nodes return addresses in this form
+			}
+			return "0x" + strings.ToLower(h), nil
 		}
 	case n == "aptos" || n == "sui":
 		h := strings.TrimPrefix(a, "0x")
@@ -255,7 +262,9 @@ func (s *jsonSource) call(ctx context.Context, method string, params ...any) (gj
 	if err != nil {
 		return gjson.Result{}, err
 	}
-	return gjson.ParseBytes(raw), nil
+	// raw is never modified, so results may alias it instead of copying a
+	// response that can be megabytes long.
+	return gjson.Parse(unsafe.String(unsafe.SliceData(raw), len(raw))), nil
 }
 func (s *jsonSource) Head(ctx context.Context) (int64, error) {
 	ctx, cancel := context.WithTimeout(ctx, 25*time.Second)

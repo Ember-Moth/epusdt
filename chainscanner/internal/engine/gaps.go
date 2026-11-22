@@ -70,6 +70,13 @@ func (s *Store) planAvailable(ctx context.Context, network string, high, head in
 		if head-high >= max(4, int64(limit/2)) {
 			width = 2
 		}
+	default:
+		// A scanner behind the tip reads several EVM blocks per provider
+		// call. At the tip each block is still its own span. A failed wide
+		// span is bisected by deferGap.
+		if chains.IsEVM(network) && head-high >= max(8, int64(limit)) {
+			width = chains.MaxLinkedSpan
+		}
 	}
 	for assigned < head && len(work) < limit {
 		r := chains.Span{First: assigned + 1, Last: assigned + min(width, head-assigned)}
