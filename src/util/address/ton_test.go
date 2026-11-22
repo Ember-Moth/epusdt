@@ -54,3 +54,49 @@ func TestTonAddressFromShortAccount(t *testing.T) {
 		t.Fatalf("TonAddressFromShortAccount() with short account = %#v, want nil", got)
 	}
 }
+
+// TestTonDisplayAndRawKeyAreDifferentForms pins the relationship between the
+// two TON normalizers on a real mainnet address (the USDT jetton master).
+// Orders store NormalizeTonAddress output; transaction locks store
+// TonRawAddressKey output. They are different strings for the same account,
+// so a column written with one can never be compared with a value produced by
+// the other.
+func TestTonDisplayAndRawKeyAreDifferentForms(t *testing.T) {
+	const usdtMaster = "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs"
+	const wantDisplay = "UQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_p0p"
+	const wantRaw = "0:b113a994b5024a16719f69139328eb759596c38a25f59028b146fecdc3621dfe"
+
+	inputs := []string{
+		usdtMaster,
+		wantDisplay,
+		wantRaw,
+		strings.ToUpper(wantRaw),
+		"  " + usdtMaster + "  ",
+	}
+	for _, input := range inputs {
+		display, err := NormalizeTonAddress(input)
+		if err != nil {
+			t.Fatalf("NormalizeTonAddress(%q): %v", input, err)
+		}
+		raw, err := TonRawAddressKey(input)
+		if err != nil {
+			t.Fatalf("TonRawAddressKey(%q): %v", input, err)
+		}
+		if display != wantDisplay {
+			t.Fatalf("NormalizeTonAddress(%q) = %q, want %q", input, display, wantDisplay)
+		}
+		if raw != wantRaw {
+			t.Fatalf("TonRawAddressKey(%q) = %q, want %q", input, raw, wantRaw)
+		}
+		if display == raw {
+			t.Fatalf("display and raw forms unexpectedly equal for %q", input)
+		}
+		// Each form converts losslessly into the other.
+		if back, err := TonRawAddressKey(display); err != nil || back != raw {
+			t.Fatalf("TonRawAddressKey(display %q) = %q, %v; want %q", display, back, err, raw)
+		}
+		if back, err := NormalizeTonAddress(raw); err != nil || back != display {
+			t.Fatalf("NormalizeTonAddress(raw %q) = %q, %v; want %q", raw, back, err, display)
+		}
+	}
+}

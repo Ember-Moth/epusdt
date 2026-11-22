@@ -74,12 +74,27 @@ func applyLockAddressFilter(tx *gorm.DB, network, address string) *gorm.DB {
 	return tx.Where("address = ?", address)
 }
 
+// normalizeOrderReceiveAddress returns the form orders.receive_address is
+// stored in, which must match service.normalizeOrderAddressByNetwork. It only
+// differs from normalizeLockAddress for TON: orders keep the user-friendly
+// address shown to payers, while locks are keyed by the raw workchain:hash.
+func normalizeOrderReceiveAddress(network, address string) string {
+	network = normalizeLockNetwork(network)
+	if network == mdb.NetworkTon {
+		if normalized, err := addressutil.NormalizeTonAddress(address); err == nil {
+			return normalized
+		}
+		return strings.TrimSpace(address)
+	}
+	return normalizeLockAddress(network, address)
+}
+
 // applyOrderReceiveAddressFilter compares receive_address directly so the
 // column stays usable by an index. EVM addresses are stored lowercase: new
 // orders are normalized at creation and LowercaseEVMOrderReceiveAddresses
-// rewrites older rows at startup.
+// rewrites older rows at startup. TON uses the stored user-friendly form.
 func applyOrderReceiveAddressFilter(tx *gorm.DB, network, address string) *gorm.DB {
-	return tx.Where("receive_address = ?", normalizeLockAddress(network, address))
+	return tx.Where("receive_address = ?", normalizeOrderReceiveAddress(network, address))
 }
 
 func activeLocksForAddress(tx *gorm.DB, network, address, token string, now time.Time) *gorm.DB {
@@ -584,7 +599,6 @@ func GetTradeIdByWalletAddressAndAmountAndToken(network string, address string, 
 // has already expired.
 func GetOnChainOrderByWalletAddressAndAmountAndTokenBeforeTime(network string, address string, token string, amount float64, before time.Time) (*mdb.Orders, error) {
 	network = normalizeLockNetwork(network)
-	address = normalizeLockAddress(network, address)
 	token = normalizeLockToken(token)
 
 	order := new(mdb.Orders)
