@@ -6,7 +6,7 @@
 
 ## 快速开始
 
-在仓库根目录使用 Go 1.25 或更高版本构建服务。以下示例启用 Base，将状态保存到本地 SQLite 文件。命令需要 `openssl`、`curl` 和 `jq`；请在新的检出目录中运行。
+在 EPUSDT 仓库的 `chainscanner/` 目录使用 Go 1.25 或更高版本构建服务。以下示例启用 Base，将状态保存到本地 SQLite 文件。命令需要 `openssl`、`curl` 和 `jq`；请在新的检出目录中运行。
 
 ```sh
 go build -o chainscanner ./cmd/chainscanner
@@ -138,7 +138,7 @@ EVM 匹配包括交易双方、创建的合约、日志发出方和形似地址�
 
 ## Go 集成
 
-可导入根包嵌入扫描器，也可使用其中的 HTTP 客户端。在仓库根目录运行带竞态检测的测试。
+可导入根包嵌入扫描器，也可使用其中的 HTTP 客户端。在 `chainscanner/` 目录运行带竞态检测的测试。
 
 ```go
 import scanner "github.com/GMWalletApp/ChainScanner"
@@ -148,4 +148,4 @@ import scanner "github.com/GMWalletApp/ChainScanner"
 go test -race ./...
 ```
 
-[接口参考](../api/zh-CN.md) · [scanner.go](https://github.com/GMWalletApp/ChainScanner/blob/main/scanner.go) · [MIT](https://github.com/GMWalletApp/ChainScanner/blob/main/LICENSE)
+[接口参考](../api/zh-CN.md) · [scanner.go](../../scanner.go) · [MIT](../../LICENSE)

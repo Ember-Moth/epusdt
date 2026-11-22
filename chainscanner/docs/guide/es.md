@@ -6,7 +6,7 @@
 
 ## Inicio rápido
 
-Desde la raíz de una copia nueva del repositorio, compila el servidor con Go 1.25 o posterior. El ejemplo activa Base y guarda el estado en SQLite. Necesitarás `openssl`, `curl` y `jq`.
+Desde el directorio `chainscanner/` de una copia nueva del repositorio de EPUSDT, compila el servidor con Go 1.25 o posterior. El ejemplo activa Base y guarda el estado en SQLite. Necesitarás `openssl`, `curl` y `jq`.
 
 ```sh
 go build -o chainscanner ./cmd/chainscanner
@@ -134,7 +134,7 @@ La coincidencia EVM incluye los extremos de la transacción, contratos creados, 
 
 ## Integración con Go
 
-Importa el paquete raíz para integrar el escáner o usar su cliente HTTP. Ejecuta las pruebas con detección de condiciones de carrera desde la raíz.
+Importa el paquete raíz para integrar el escáner o usar su cliente HTTP. Ejecuta las pruebas con detección de condiciones de carrera desde el directorio `chainscanner/`.
 
 ```go
 import scanner "github.com/GMWalletApp/ChainScanner"
@@ -144,4 +144,4 @@ import scanner "github.com/GMWalletApp/ChainScanner"
 go test -race ./...
 ```
 
-[Referencia de la API](../api/es.md) · [scanner.go](https://github.com/GMWalletApp/ChainScanner/blob/main/scanner.go) · [MIT](https://github.com/GMWalletApp/ChainScanner/blob/main/LICENSE)
+[Referencia de la API](../api/es.md) · [scanner.go](../../scanner.go) · [MIT](../../LICENSE)

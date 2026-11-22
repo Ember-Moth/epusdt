@@ -6,7 +6,7 @@
 
 ## Быстрый старт
 
-В корне свежей копии репозитория соберите сервер с Go 1.25 или новее. В примере используется сеть Base и локальная база SQLite. Для команд нужны `openssl`, `curl` и `jq`.
+В каталоге `chainscanner/` свежей копии репозитория EPUSDT соберите сервер с Go 1.25 или новее. В примере используется сеть Base и локальная база SQLite. Для команд нужны `openssl`, `curl` и `jq`.
 
 ```sh
 go build -o chainscanner ./cmd/chainscanner
@@ -134,7 +134,7 @@ flowchart LR
 
 ## Интеграция с Go
 
-Импортируйте корневой пакет, чтобы встроить сканер или воспользоваться HTTP-клиентом. Запускайте тесты с детектором гонок из корня репозитория.
+Импортируйте корневой пакет, чтобы встроить сканер или воспользоваться HTTP-клиентом. Запускайте тесты с детектором гонок из каталога `chainscanner/`.
 
 ```go
 import scanner "github.com/GMWalletApp/ChainScanner"
@@ -144,4 +144,4 @@ import scanner "github.com/GMWalletApp/ChainScanner"
 go test -race ./...
 ```
 
-[Справочник по API](../api/ru.md) · [scanner.go](https://github.com/GMWalletApp/ChainScanner/blob/main/scanner.go) · [MIT](https://github.com/GMWalletApp/ChainScanner/blob/main/LICENSE)
+[Справочник по API](../api/ru.md) · [scanner.go](../../scanner.go) · [MIT](../../LICENSE)

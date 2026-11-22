@@ -449,4 +449,4 @@ List returns a sorted JSON array of `{host, source}`. PUT and DELETE are idempot
 
 Correct invalid requests before retrying **400**. For **401**, verify the bearer token and its role. Inspect the endpoint-specific meaning of **409** above. A **503** indicates that the subscription, queue, cursor or node store could not serve the operation. Retry transient failures with backoff. An empty queue returns **204**.
 
-[Guide](../../README.md) · [ConsumerHandler](https://github.com/GMWalletApp/ChainScanner/blob/main/internal/feed/handler.go) · [NodeRegistry.Handler](https://github.com/GMWalletApp/ChainScanner/blob/main/internal/nodes/http.go)
+[Guide](../../README.md) · [ConsumerHandler](../../internal/feed/handler.go) · [NodeRegistry.Handler](../../internal/nodes/http.go)

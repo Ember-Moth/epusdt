@@ -6,7 +6,7 @@
 
 ## Khởi động nhanh
 
-Từ thư mục gốc của bản sao kho mã mới, biên dịch bằng Go 1.25 trở lên. Ví dụ bật mạng Base và lưu trạng thái vào SQLite trên máy. Các lệnh dùng `openssl`, `curl` và `jq`.
+Từ thư mục `chainscanner/` trong bản sao mới của kho mã EPUSDT, biên dịch bằng Go 1.25 trở lên. Ví dụ bật mạng Base và lưu trạng thái vào SQLite trên máy. Các lệnh dùng `openssl`, `curl` và `jq`.
 
 ```sh
 go build -o chainscanner ./cmd/chainscanner
@@ -134,7 +134,7 @@ EVM đối chiếu hai đầu giao dịch, hợp đồng được tạo, nguồn
 
 ## Tích hợp Go
 
-Nhập gói gốc để nhúng bộ quét hoặc dùng HTTP client đi kèm. Chạy bộ kiểm thử có phát hiện tranh chấp dữ liệu tại thư mục gốc.
+Nhập gói gốc để nhúng bộ quét hoặc dùng HTTP client đi kèm. Chạy bộ kiểm thử có phát hiện tranh chấp dữ liệu tại thư mục `chainscanner/`.
 
 ```go
 import scanner "github.com/GMWalletApp/ChainScanner"
@@ -144,4 +144,4 @@ import scanner "github.com/GMWalletApp/ChainScanner"
 go test -race ./...
 ```
 
-[Tài liệu API](../api/vi.md) · [scanner.go](https://github.com/GMWalletApp/ChainScanner/blob/main/scanner.go) · [MIT](https://github.com/GMWalletApp/ChainScanner/blob/main/LICENSE)
+[Tài liệu API](../api/vi.md) · [scanner.go](../../scanner.go) · [MIT](../../LICENSE)

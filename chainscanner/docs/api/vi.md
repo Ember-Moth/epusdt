@@ -451,4 +451,4 @@ GET trả về mảng `{host, source}` đã sắp xếp. PUT và DELETE có th�
 
 Sửa yêu cầu trước khi thử lại **400**. Với **401**, kiểm tra Bearer token và quyền của nó. Xem ý nghĩa **409** trong từng mục ở trên. **503** nghĩa là kho đăng ký, hàng đợi, con trỏ hoặc kho nút chưa xử lý được yêu cầu; thử lại với thời gian chờ tăng dần. Hàng đợi trống trả **204**.
 
-[Hướng dẫn](../../README.vi.md) · [ConsumerHandler](https://github.com/GMWalletApp/ChainScanner/blob/main/internal/feed/handler.go) · [NodeRegistry.Handler](https://github.com/GMWalletApp/ChainScanner/blob/main/internal/nodes/http.go)
+[Hướng dẫn](../../README.vi.md) · [ConsumerHandler](../../internal/feed/handler.go) · [NodeRegistry.Handler](../../internal/nodes/http.go)

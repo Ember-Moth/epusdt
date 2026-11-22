@@ -451,4 +451,4 @@ GET возвращает отсортированный массив `{host, sou
 
 Исправьте параметры перед повтором запроса с **400**. При **401** проверьте токен и его роль. Значение **409** зависит от маршрута и указано выше. **503** означает временную ошибку подписок, очереди, курсора или хранилища узлов; увеличивайте интервал между повторами. Для пустой очереди используется **204**.
 
-[Руководство](../../README.ru.md) · [ConsumerHandler](https://github.com/GMWalletApp/ChainScanner/blob/main/internal/feed/handler.go) · [NodeRegistry.Handler](https://github.com/GMWalletApp/ChainScanner/blob/main/internal/nodes/http.go)
+[Руководство](../../README.ru.md) · [ConsumerHandler](../../internal/feed/handler.go) · [NodeRegistry.Handler](../../internal/nodes/http.go)

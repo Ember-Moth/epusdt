@@ -449,4 +449,4 @@ admin -X DELETE "$BASE/v1/admin/blacklist/exact:rpc.example.org"
 
 遇到 **400** 先修正参数；**401** 时检查 Bearer 令牌及角色。**409** 的含义随接口而异，见各接口说明。**503** 表示订阅、队列、游标或节点存储暂时无法完成操作，可退避重试。空队列返回 **204**。
 
-[使用指南](../../README.zh-CN.md) · [ConsumerHandler](https://github.com/GMWalletApp/ChainScanner/blob/main/internal/feed/handler.go) · [NodeRegistry.Handler](https://github.com/GMWalletApp/ChainScanner/blob/main/internal/nodes/http.go)
+[使用指南](../../README.zh-CN.md) · [ConsumerHandler](../../internal/feed/handler.go) · [NodeRegistry.Handler](../../internal/nodes/http.go)
