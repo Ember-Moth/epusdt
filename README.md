@@ -153,7 +153,9 @@ Docker Compose starts the embedded scanner by default. Existing standalone Compo
 
 EPUSDT starts ChainScanner in-process by default, using a private loopback port and automatically generated credentials. Subscriptions, cursors and node settings persist in `chainscanner.sqlite` in the EPUSDT runtime directory. To use a standalone scanner instead, configure its HTTP(S) origin in `CHAINSCANNER_URL` and a dedicated consumer credential in `CHAINSCANNER_TOKEN`. Set a separate `CHAINSCANNER_ADMIN_TOKEN` for scan progress, node diagnostics and blacklist management. Configure persistent scanner storage and reconcile pending orders when migrating. The default event transport is WebSocket. Set `CHAINSCANNER_TRANSPORT=grpc` for bidirectional streaming or `http` for long polling.
 
-You can configure fallback nodes from two independent providers per network for retries and strict verification. [ChainScanner API](chainscanner/docs/api/en.md) · [Upstream project](https://github.com/GMWalletApp/ChainScanner) · [Pinned revision](chainscanner.rev)
+You can configure fallback nodes from two independent providers per network for retries and strict verification. [ChainScanner API](chainscanner/docs/api/en.md)
+
+ChainScanner is maintained in this repository under [`chainscanner/`](chainscanner/). It was originally imported from [GMWalletApp/ChainScanner](https://github.com/GMWalletApp/ChainScanner).
 
 </details>
 

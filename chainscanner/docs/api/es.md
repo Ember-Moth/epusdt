@@ -451,4 +451,4 @@ GET devuelve una lista ordenada de `{host, source}`. PUT y DELETE son idempotent
 
 Corrige la petición antes de repetir un **400**. Para **401**, revisa token y rol. El significado de **409** depende de la ruta, como se indica arriba. **503** señala un fallo al acceder a suscripciones, cola, cursor o inventario; reintenta los fallos transitorios con espera progresiva. Una cola vacía devuelve **204**.
 
-[Guía](../../README.es.md) · [ConsumerHandler](https://github.com/GMWalletApp/ChainScanner/blob/main/internal/feed/handler.go) · [NodeRegistry.Handler](https://github.com/GMWalletApp/ChainScanner/blob/main/internal/nodes/http.go)
+[Guía](../../README.es.md) · [ConsumerHandler](../../internal/feed/handler.go) · [NodeRegistry.Handler](../../internal/nodes/http.go)

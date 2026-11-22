@@ -23,4 +23,5 @@
 - 逐项评估功能完整性、实现质量、健壮性、简洁性、可维护性、回归风险、可提交性和测试质量。评分应有实际依据。
 - 确认已有能力保留，本地数据库、日志、缓存和临时文件已排除。检查 UTF-8 编码、重复代码，以及影响交付的已知缺陷。
 - 若变更 API 处理函数或 Swagger 注解，在 `src/` 用 swag v1.16.6 执行 `make swagger`，提交重新生成的 `src/docs`。CI 会检查差异，前端从 GitHub 读取规范。
+- ChainScanner 现作为 `chainscanner/` 在本仓库维护，最初来源于 GMWalletApp/ChainScanner，直接在该目录修改。`src/go.mod` 将该模块指向 `../chainscanner`；改动扫描器时，在 `chainscanner/` 运行 `go test ./...`，并在 `src/` 运行 `go build ./...`。
 - 对比旧 Redis/asynq 与新 SQLite 单实例设计。如果运行语义有意变化，在合并或评审说明中记录原因及影响。

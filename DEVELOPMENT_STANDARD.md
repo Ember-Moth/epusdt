@@ -150,6 +150,7 @@ Before considering a change ready, confirm:
 - tests are behavior-based and not mirror tests
 - review notes clearly explain intentional semantic changes
 - if API handlers or swag annotations changed, `make swagger` was run in `src/` (swag v1.16.6) and the regenerated `src/docs` is committed (CI fails otherwise; the frontend pulls `src/docs/swagger.json` from GitHub)
+- if `chainscanner/` changed, `go test ./...` passes in `chainscanner/` and `go build ./...` passes in `src/`. ChainScanner is maintained in this repository (originally from GMWalletApp/ChainScanner); edit it in place, and `src/go.mod` resolves the module to `../chainscanner`
 
 ## Current Project Direction
 

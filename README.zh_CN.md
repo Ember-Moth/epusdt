@@ -170,7 +170,9 @@ EPUSDT 仅支持 SQLite。新安装可省略 `db_type`，也可以显式设置 `
 | RPC 地址黑名单 | `GET /admin/blacklist`、`PUT /admin/blacklist/{rule}`、`DELETE /admin/blacklist/{rule}`。例如 `keyword:acme`、`exact:rpc.example.org` |
 | 连续进度、普通与严格交易查询 | `GET /heights/{network}`、`GET /transactions/{network}/{hash}`、`GET /transactions/{network}/{hash}/strict` |
 
-可为每条链配置两家独立服务商提供的兜底节点，用于补扫和严格核验。[ChainScanner API](chainscanner/docs/api/zh-CN.md) · [上游仓库](https://github.com/GMWalletApp/ChainScanner) · [本项目使用的版本](chainscanner.rev)
+可为每条链配置两家独立服务商提供的兜底节点，用于补扫和严格核验。[ChainScanner API](chainscanner/docs/api/zh-CN.md)
+
+ChainScanner 现作为 [`chainscanner/`](chainscanner/) 在本仓库维护，最初来源于 [GMWalletApp/ChainScanner](https://github.com/GMWalletApp/ChainScanner)。
 
 </details>
 
