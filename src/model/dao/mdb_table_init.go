@@ -59,6 +59,8 @@ func MdbTableInit() {
 		seedChainTokens()
 		seedDefaultSettings()
 		seedTelegramChannelFromSettings()
+		// After seedChains: the EVM address migration reads the chains table.
+		migrateOrders()
 	})
 }
 

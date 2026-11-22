@@ -17,5 +17,6 @@ func DBInit() error {
 	}
 
 	MdbTableInit()
+	SqliteReadPoolInit()
 	return nil
 }
