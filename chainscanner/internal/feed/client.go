@@ -69,6 +69,19 @@ func (c Client) Subscribe(ctx context.Context, _ string, w []Watch) (Subscriptio
 	return result, err
 }
 
+// Register adds watches without removing the consumer's other watches.
+func (c Client) Register(ctx context.Context, _ string, w []Watch) ([]Registration, error) {
+	if w == nil {
+		w = []Watch{}
+	}
+	var result RegistrationReceipt
+	err := c.request(ctx, "POST", "/v1/subscriptions", w, &result)
+	if err == nil && result.Registrations == nil {
+		return nil, errors.New("invalid registration receipt")
+	}
+	return result.Registrations, err
+}
+
 func (c Client) PendingNetwork(ctx context.Context, _ string, network string, wait time.Duration) (*Delivery, error) {
 	if !chains.Supported(network) {
 		return nil, errors.New("unknown network")

@@ -34,3 +34,9 @@ type SubscriptionReceipt struct {
 	Registrations []Registration `json:"registrations"`
 	Terminations  []Termination  `json:"terminations"`
 }
+
+// RegistrationReceipt answers an additive registration with one entry per
+// distinct requested watch, in request order.
+type RegistrationReceipt struct {
+	Registrations []Registration `json:"registrations"`
+}

@@ -20,6 +20,8 @@ import (
 type Feed interface {
 	Height(context.Context, string) (int64, error)
 	Subscribe(context.Context, string, []Watch) (SubscriptionReceipt, error)
+	// Register adds watches without removing the consumer's other watches.
+	Register(context.Context, string, []Watch) ([]Registration, error)
 	PendingNetwork(context.Context, string, string, time.Duration) (*Delivery, error)
 	Ack(context.Context, string, int64) error
 }
@@ -57,22 +59,24 @@ func Handler(s Feed, consumers map[string]string, transactions http.Handler, con
 		case r.Method == "GET" && r.URL.Path == "/v1/events/stream":
 			streams.websocket(w, r, consumer)
 			return
-		case r.Method == "PUT" && r.URL.Path == "/v1/subscriptions":
-			var watches []Watch
-			dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<20))
-			if err := dec.Decode(&watches); err != nil || watches == nil || dec.Decode(new(json.RawMessage)) != io.EOF {
-				http.Error(w, "expected address list", 400)
+		case (r.Method == "PUT" || r.Method == "POST") && r.URL.Path == "/v1/subscriptions":
+			watches, ok := decodeWatches(w, r, configured)
+			if !ok {
 				return
 			}
-			for _, v := range watches {
-				if !configured(v.Network) {
-					http.Error(w, "network has no configured node", 400)
+			if r.Method == "POST" {
+				rows, err := s.Register(ctx, consumer, watches)
+				if errors.Is(err, ErrCursorNotReady) {
+					http.Error(w, err.Error(), 409)
 					return
 				}
-				if _, err := chains.Canonical(v.Network, v.Address); err != nil {
-					http.Error(w, err.Error(), 400)
+				if err != nil {
+					http.Error(w, "subscription unavailable", 503)
 					return
 				}
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(RegistrationReceipt{Registrations: rows})
+				return
 			}
 			receipt, err := s.Subscribe(ctx, consumer, watches)
 			if errors.Is(err, ErrCursorNotReady) {
@@ -144,4 +148,25 @@ func Handler(s Feed, consumers map[string]string, transactions http.Handler, con
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}), nil
+}
+
+// decodeWatches reads a subscription body and writes 400 for invalid input.
+func decodeWatches(w http.ResponseWriter, r *http.Request, configured func(string) bool) ([]Watch, bool) {
+	var watches []Watch
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<20))
+	if err := dec.Decode(&watches); err != nil || watches == nil || dec.Decode(new(json.RawMessage)) != io.EOF {
+		http.Error(w, "expected address list", 400)
+		return nil, false
+	}
+	for _, v := range watches {
+		if !configured(v.Network) {
+			http.Error(w, "network has no configured node", 400)
+			return nil, false
+		}
+		if _, err := chains.Canonical(v.Network, v.Address); err != nil {
+			http.Error(w, err.Error(), 400)
+			return nil, false
+		}
+	}
+	return watches, true
 }

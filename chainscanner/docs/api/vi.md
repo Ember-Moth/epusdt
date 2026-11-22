@@ -27,6 +27,7 @@ admin() { curl -sS -i -H "Authorization: Bearer $ADMIN" -H 'Content-Type: applic
 | Vai trò | HTTP | Thành công |
 | --- | --- | --- |
 | Dịch vụ | [`PUT /v1/subscriptions`](#replace-watches) | `200 / 202` |
+| Dịch vụ | [`POST /v1/subscriptions`](#add-watches) | `200` |
 | Dịch vụ | [`GET /v1/events/next`](#next) | `200 / 204` |
 | Dịch vụ | [`GET /v1/events/stream`](#streaming) · WebSocket | `101` |
 | Dịch vụ | [`POST /v1/events/{id}/ack`](#ack) | `204` |
@@ -102,6 +103,20 @@ Mã **202** cho biết ít nhất một địa chỉ đang chờ xử lý các k
 
 ```json
 {"registrations":[],"terminations":[{"network":"base","address":"0x1111111111111111111111111111111111111111","from_height":101,"to_height":110,"completed":false}]}
+```
+
+<a id="add-watches"></a>
+
+### `POST /v1/subscriptions`
+
+Thêm địa chỉ theo dõi mà không hủy các địa chỉ khác. Thân yêu cầu có cùng định dạng và giới hạn với `PUT`. Phản hồi liệt kê mỗi địa chỉ khác nhau đúng một lần theo thứ tự yêu cầu, kèm địa chỉ chuẩn hóa và mốc đầu `from_height` bao gồm cả khối đó. Địa chỉ đã đăng ký giữ nguyên mốc đầu. Địa chỉ mới bắt đầu giống như với `PUT`. Nếu khoảng trước đó của địa chỉ vẫn đang được xử lý nốt sau khi hủy, đăng ký mới bắt đầu sau `to_height` của khoảng đó. Dùng tuyến này để đăng ký từng địa chỉ. Lần `PUT` tiếp theo vẫn thay toàn bộ danh sách và hủy mọi địa chỉ không có trong đó. Dữ liệu không hợp lệ trả **400**. Mã **409** cho biết không đọc được đầu chuỗi cần để mở một mạng chưa chạy và không địa chỉ nào trong yêu cầu được thêm. Phản hồi hủy đăng ký mà `PUT` lặp lại trả về vẫn giữ nguyên.
+
+```sh
+consumer -X POST "$BASE/v1/subscriptions" --data '[{"network":"base","address":"0x1111111111111111111111111111111111111111"}]'
+```
+
+```json
+{"registrations":[{"network":"base","address":"0x1111111111111111111111111111111111111111","from_height":101}]}
 ```
 
 <a id="deliveries"></a>
